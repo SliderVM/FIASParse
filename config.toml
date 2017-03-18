@@ -1,0 +1,7 @@
+[datebase]
+server = "25.35.34.171"  
+port = 5432  
+user = "postgres"
+password = "123456"
+base = "fias"
+dir_name = "\\FIAS\\"
