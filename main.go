@@ -17,7 +17,8 @@ import (
 	"time"
 
 	_ "github.com/lib/pq"
-	"github.com/mholt/archiver"
+	// "github.com/mholt/archiver"
+	"github.com/gen2brain/go-unar"
 	"github.com/spf13/viper"
 	pb "gopkg.in/cheggaaa/pb.v1"
 	"gopkg.in/doug-martin/goqu.v3"
@@ -388,7 +389,7 @@ func checkNewFile(connectionString string) (path string, err error) {
 	if fileVersion != string(versionID) {
 		update := gq.From("config").
 			Where(goqu.I("id").Eq("TextVersion")).
-			Update(goqu.Record{"value": string(versionID)})
+			Update(goqu.Record{"value": versionID})
 
 		if _, err := update.Exec(); err != nil {
 			log.Printf("\nОшибка %s при записи версии файла", err.Error())
@@ -443,7 +444,18 @@ func DownLoadFile(path string) (fileName string, err error) {
 
 // UnRar - распаковываем архив
 func UnRar(fileName string) error {
-	err := archiver.Rar.Open(fileName, "FIAS")
+	a, err := unarr.NewArchive(fileName)
+	if err != nil {
+	    panic(err)
+	}
+	defer a.Close()
+
+	err := a.Extract("FIAS")
+	if err != nil {
+	    panic(err)
+	}
+
+	//err := archiver.Rar.Open(fileName, "FIAS")
 	return err
 }
 
@@ -596,7 +608,7 @@ func main() {
 
 		fmt.Println(dbinfo)
 		for {
-
+			
 			check, err := checkNewFile(dbinfo)
 			if err != nil {
 				log.Println(err)
@@ -609,20 +621,23 @@ func main() {
 				time.Sleep(24 * time.Hour)
 				break
 			}
+			fileName := "fias.rar"
 
+			/*
 			fileName, err := DownLoadFile(check)
 
 			if err != nil {
 				log.Printf("Ошибка %s при загрузке файла", err)
 				break
 			}
+			*/
 
 			err = UnRar(fileName)
 			if err != nil {
 				log.Printf("Ошибка %s при распаковки файла", err)
 				break
 			}
-
+			
 			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 			if err != nil {
 				log.Fatal(err)
