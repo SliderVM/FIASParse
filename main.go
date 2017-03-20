@@ -16,9 +16,10 @@ import (
 	"strings"
 	"time"
 
+	unarr "github.com/gen2brain/go-unarr"
 	_ "github.com/lib/pq"
 	// "github.com/mholt/archiver"
-	"github.com/gen2brain/go-unar"
+
 	"github.com/spf13/viper"
 	pb "gopkg.in/cheggaaa/pb.v1"
 	"gopkg.in/doug-martin/goqu.v3"
@@ -446,13 +447,13 @@ func DownLoadFile(path string) (fileName string, err error) {
 func UnRar(fileName string) error {
 	a, err := unarr.NewArchive(fileName)
 	if err != nil {
-	    panic(err)
+		panic(err)
 	}
 	defer a.Close()
 
 	err := a.Extract("FIAS")
 	if err != nil {
-	    panic(err)
+		panic(err)
 	}
 
 	//err := archiver.Rar.Open(fileName, "FIAS")
@@ -608,7 +609,7 @@ func main() {
 
 		fmt.Println(dbinfo)
 		for {
-			
+
 			check, err := checkNewFile(dbinfo)
 			if err != nil {
 				log.Println(err)
@@ -624,12 +625,12 @@ func main() {
 			fileName := "fias.rar"
 
 			/*
-			fileName, err := DownLoadFile(check)
+				fileName, err := DownLoadFile(check)
 
-			if err != nil {
-				log.Printf("Ошибка %s при загрузке файла", err)
-				break
-			}
+				if err != nil {
+					log.Printf("Ошибка %s при загрузке файла", err)
+					break
+				}
 			*/
 
 			err = UnRar(fileName)
@@ -637,7 +638,7 @@ func main() {
 				log.Printf("Ошибка %s при распаковки файла", err)
 				break
 			}
-			
+
 			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
 			if err != nil {
 				log.Fatal(err)
