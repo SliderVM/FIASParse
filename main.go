@@ -431,7 +431,7 @@ func DownLoadFile(path string) error {
 	bar.Start()
 	reader := bar.NewProxyReader(response.Body)
 
-	n, err := io.Copy(output, reader)
+	_, err := io.Copy(output, reader)
 	if err != nil {
 		log.Println("Error while downloading", path, "-", err)
 		return err
@@ -570,7 +570,7 @@ func Parse(f string, table string, connectionString string, elementName string, 
 
 		if tempTableName != table {
 			log.Printf("\nНачинаем переносить данные\n")
-			result, err := pgDb.Exec("DROP TABLE " + table + "; ALTER TABLE " + tempTableName + " RENAME TO " + table + ";")
+			_, err := pgDb.Exec("DROP TABLE " + table + "; ALTER TABLE " + tempTableName + " RENAME TO " + table + ";")
 			if err != nil {
 				log.Println(err)
 				return err
