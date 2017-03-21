@@ -610,7 +610,7 @@ func main() {
 		fmt.Println(dbinfo)
 		for {
 
-			if canCheckNewFile {
+			if canCheckNewFile == "1"{
 				check, err := checkNewFile(dbinfo)
 				if err != nil {
 					log.Println(err)
@@ -624,7 +624,7 @@ func main() {
 				}
 			}
 
-			if canDownloadFile && canCheckNewFile {
+			if canDownloadFile == "1" && canCheckNewFile == "1"{
 				err := DownLoadFile(check)
 
 				if err != nil {
@@ -633,7 +633,7 @@ func main() {
 				}
 			}
 
-			if canUnrarFile {
+			if canUnrarFile == "1"{
 				err = UnRar(fileName)
 				if err != nil {
 					log.Printf("Ошибка %s при распаковки файла", err)
@@ -651,7 +651,7 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if canParseFile {
+			if canParseFile == "1"{
 				for _, file := range files {
 					switch {
 					case ACTSTAT_PATTERN.MatchString(file.Name()):
