@@ -600,18 +600,18 @@ func main() {
 		dirName = viper.GetString("config.dir_name")
 		workRegime := viper.GetString("config.work_regime")
 		canCheckNewFile := workRegime[0:1]
-		canDownloadFile := workRegime[1:1]
-		canUnrarFile := workRegime[2:1]
-		canParseFile := workRegime[3:1]
+		canDownloadFile := workRegime[1:2]
+		canUnrarFile := workRegime[2:3]
+		canParseFile := workRegime[3:4]
 		fileName = viper.GetString("config.file_name")
 		dbinfo := fmt.Sprintf("host=%s port=%v user=%s password=%s dbname=%s sslmode=disable application_name='FIAS Parser'",
 			server, port, user, password, base)
 
 		fmt.Println(dbinfo)
 		for {
-
+			var check string
 			if canCheckNewFile == "1"{
-				check, err := checkNewFile(dbinfo)
+				check, err = checkNewFile(dbinfo)
 				if err != nil {
 					log.Println(err)
 					break
