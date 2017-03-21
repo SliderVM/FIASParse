@@ -27,6 +27,7 @@ import (
 )
 
 var dirName string
+var fileName string 
 
 var ACTSTAT_PATTERN = regexp.MustCompile("^(AS_ACTSTAT_)[0-9]{8}_.+")
 var ADDROBJ_PATTERN = regexp.MustCompile("^(AS_ADDROBJ_)[0-9]{8}_.+")
@@ -255,7 +256,7 @@ type NormativeDocument struct {
 	DOCDATE   string `xml:"DOCDATE,attr"`
 	DOCNUM    string `xml:"DOCNUM,attr"`
 	DOCTYPE   int    `xml:"DOCTYPE,attr"`
-	DOCIMGID  int    `xml:"DOCIMGID,attr"`
+	DOCIMGID  string `xml:"DOCIMGID,attr"`
 }
 
 // OperationStatus - Статус действия
@@ -316,7 +317,7 @@ type Stead struct {
 	STARTDATE  string `xml:"STARTDATE,attr"`
 	ENDDATE    string `xml:"ENDDATE,attr"`
 	NORMDOC    string `xml:"NORMDOC,attr"`
-	LIVESTATUS byte   `xml:"LIVESTATUS,attr"`
+	LIVESTATUS int   `xml:"LIVESTATUS,attr"`
 	CADNUM     string `xml:"CADNUM,attr"`
 	DIVTYPE    int    `xml:"DIVTYPE,attr"`
 }
@@ -353,7 +354,7 @@ func checkNewFile(connectionString string) (path string, err error) {
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
 		return "", err
 	}
 	defer resp.Body.Close()
@@ -379,7 +380,7 @@ func checkNewFile(connectionString string) (path string, err error) {
 	err = pgDb.QueryRow(query).Scan(&fileVersion)
 	switch {
 	case err == sql.ErrNoRows:
-		log.Printf("No TextVersion in config.")
+		log.Fatal("Не найдена настройка TextVersion.")
 		return "", err
 	case err != nil:
 		log.Fatal(err)
@@ -404,9 +405,7 @@ func checkNewFile(connectionString string) (path string, err error) {
 }
 
 // DownLoadFile - Грузим файл из ФИАС
-func DownLoadFile(path string) (fileName string, err error) {
-	fileName = "fias.rar"
-
+func DownLoadFile(path string) error {
 	if _, err := os.Stat(fileName); !os.IsNotExist(err) {
 		os.RemoveAll(dirName)
 		os.Remove(fileName)
@@ -414,15 +413,15 @@ func DownLoadFile(path string) (fileName string, err error) {
 
 	output, err := os.Create(fileName)
 	if err != nil {
-		fmt.Println("Error while creating", "file", "-", err)
-		return
+		log.Println("Error while creating", "file", "-", err)
+		return err
 	}
 	defer output.Close()
 
 	response, err := http.Get(path)
 	if err != nil {
-		fmt.Println("Error while downloading", path, "-", err)
-		return
+		log.Println("Error while downloading", path, "-", err)
+		return err
 	}
 	defer response.Body.Close()
 
@@ -434,52 +433,50 @@ func DownLoadFile(path string) (fileName string, err error) {
 
 	n, err := io.Copy(output, reader)
 	if err != nil {
-		fmt.Println("Error while downloading", path, "-", err)
-		return
+		log.Println("Error while downloading", path, "-", err)
+		return err
 	}
 
-	fmt.Println(n, "bytes downloaded.")
-
-	return fileName, err
+	return err
 }
 
 // UnRar - распаковываем архив
 func UnRar(fileName string) error {
 	a, err := unarr.NewArchive(fileName)
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return err
 	}
 	defer a.Close()
 
 	err = a.Extract("FIAS")
 	if err != nil {
-		panic(err)
+		log.Println(err)
+		return err
 	}
-
-	//err := archiver.Rar.Open(fileName, "FIAS")
 	return err
 }
 
 // Parse - парсер файлов
 func Parse(f string, table string, connectionString string, elementName string, r interface{}) error {
-	fmt.Printf("Открываем файл %s\n", f)
+	log.Printf("Открываем файл %s\n", f)
 
 	file, err := os.Open(f)
 	if err != nil {
-		fmt.Printf("\nОшибка %s открытия файла", err)
+		log.Printf("\nОшибка %s открытия файла", err)
 		return err
 	}
 	defer file.Close()
 
 	fi, err := file.Stat()
 	if err != nil {
-		fmt.Printf("\nОшибка %s при получении размера файла", err)
+		log.Printf("\nОшибка %s при получении размера файла", err)
 		return err
 	}
 
 	pgDb, err := sql.Open("postgres", connectionString)
 	if err != nil {
-		fmt.Printf("\nОшибка %s при открытие БД", err)
+		log.Printf("\nОшибка %s при открытие БД", err)
 		return err
 	}
 	defer pgDb.Close()
@@ -489,12 +486,12 @@ func Parse(f string, table string, connectionString string, elementName string, 
 	tempTableName := table
 	if fi.Size() > int64(20388921) {
 		tempTableName = "temp_" + table
-		fmt.Printf("\nБольшой файл, создаем временную таблицу %s", tempTableName)
+		log.Printf("\nБольшой файл, создаем временную таблицу %s\n", tempTableName)
 		createTemplateTable := fmt.Sprintf("CREATE TABLE %s ( like %s including all);", tempTableName, table)
 
 		_, err = pgDb.Exec(createTemplateTable)
 		if err != nil {
-			fmt.Printf("Ошибка %s при создании временной таблицы", err)
+			log.Printf("Ошибка %s при создании временной таблицы", err)
 			return err
 		}
 		defer pgDb.Exec("DROP TABLE " + tempTableName + ";")
@@ -503,18 +500,17 @@ func Parse(f string, table string, connectionString string, elementName string, 
 	if tempTableName == table {
 		result, err := pgDb.Exec("TRUNCATE " + tempTableName + ";")
 		if err != nil {
-			fmt.Printf("\nОшибка %s при удалении данных из таблице", err)
+			log.Printf("\nОшибка %s при удалении данных из таблице", err)
 			return err
 		}
 		rowsAffected, _ := result.RowsAffected()
-		fmt.Printf("\nУдалено %v из таблицы %s", rowsAffected, tempTableName)
+		log.Printf("\nУдалено %v из таблицы %s\n", rowsAffected, tempTableName)
 	}
 
 	s := reflect.ValueOf(r).Elem()
 	columnsCount := s.NumField()
 	columnsName := make([]string, columnsCount)
 
-	fmt.Printf("\nВсего строк - %v \n", columnsCount)
 	for ii := 0; ii < columnsCount; ii++ {
 		columnsName[ii] = strings.ToLower(s.Type().Field(ii).Name)
 	}
@@ -542,7 +538,7 @@ func Parse(f string, table string, connectionString string, elementName string, 
 			if inElement == elementName {
 				err := decoder.DecodeElement(&r, &se)
 				if err != nil {
-					fmt.Printf("\nОшибка при декодинге %s ", err)
+					log.Printf("\nОшибка при декодинге %s, элемент - %s ", err, elementName)
 					return err
 				}
 				argument := make(goqu.Record)
@@ -559,7 +555,7 @@ func Parse(f string, table string, connectionString string, elementName string, 
 
 		if len(arguments) == 5000 {
 			if _, err := gq.From(tempTableName).Insert(arguments).Exec(); err != nil {
-				fmt.Println(err.Error())
+				log.Println(err.Error())
 				return err
 			}
 			arguments = []goqu.Record{}
@@ -568,20 +564,18 @@ func Parse(f string, table string, connectionString string, elementName string, 
 
 	if len(arguments) > 0 {
 		if _, err := gq.From(tempTableName).Insert(arguments).Exec(); err != nil {
-			fmt.Println(err.Error())
+			log.Println(err.Error())
 			return err
 		}
 
 		if tempTableName != table {
-			fmt.Printf("\nНачинаем переносить данные")
+			log.Printf("\nНачинаем переносить данные\n")
 			result, err := pgDb.Exec("DROP TABLE " + table + "; ALTER TABLE " + tempTableName + " RENAME TO " + table + ";")
 			if err != nil {
-				fmt.Println(err)
+				log.Println(err)
 				return err
 			}
-
-			rowsAffected, _ := result.RowsAffected()
-			fmt.Printf("\nТаблица скопирована, затронуто %v строк\n", rowsAffected)
+			fmt.Printf("\nТаблица скопирована\n")
 		}
 		arguments = []goqu.Record{}
 	}
@@ -609,7 +603,7 @@ func main() {
 		canDownloadFile := workRegime[1:1]
 		canUnrarFile := workRegime[2:1]
 		canParseFile := workRegime[3:1]
-		fileName := viper.GetString("config.file_name")
+		fileName = viper.GetString("config.file_name")
 		dbinfo := fmt.Sprintf("host=%s port=%v user=%s password=%s dbname=%s sslmode=disable application_name='FIAS Parser'",
 			server, port, user, password, base)
 
@@ -621,8 +615,7 @@ func main() {
 				if err != nil {
 					log.Println(err)
 					break
-				}
-				fmt.Println(check)
+				}			
 
 				if check == "" {
 					log.Println("Нет новых файлов")
@@ -631,8 +624,8 @@ func main() {
 				}
 			}
 
-			if canDownloadFile {
-				fileName, err := DownLoadFile(check)
+			if canDownloadFile && canCheckNewFile {
+				err := DownLoadFile(check)
 
 				if err != nil {
 					log.Printf("Ошибка %s при загрузке файла", err)
@@ -698,7 +691,7 @@ func main() {
 						r := new(EstateStatus)
 						Parse(dir+file.Name(), "estate_status", dbinfo, "EstateStatus", r)
 					case HOUSE_PATTERN.MatchString(file.Name()):
-						fmt.Println("HOUSEINT_PATTERN")
+						fmt.Println("HOUSE_PATTERN")
 						r := new(House)
 						Parse(dir+file.Name(), "house", dbinfo, "House", r)
 					case HOUSEINT_PATTERN.MatchString(file.Name()):
@@ -750,7 +743,7 @@ func main() {
 					}
 				}
 			}
-
+			log.Printf("\nПарсинг закончен, ждем неделю\n")
 			time.Sleep(150 * time.Hour)
 		}
 	}
