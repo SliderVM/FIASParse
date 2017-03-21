@@ -4,4 +4,15 @@ port = 5432
 user = "postgres"
 password = "123456"
 base = "fias"
+
+[config]
 dir_name = "\\FIAS\\"
+file_name = "fias.rar" # имя файла после загрузки
+
+# Режим работы
+# qwer, где
+# q - проврка на наличие новых файлов
+# w - загрузка файла
+# e - распаковка файла
+# r - парсинг файлов
+work_regime = "0001"

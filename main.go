@@ -451,7 +451,7 @@ func UnRar(fileName string) error {
 	}
 	defer a.Close()
 
-	err := a.Extract("FIAS")
+	err = a.Extract("FIAS")
 	if err != nil {
 		panic(err)
 	}
@@ -603,40 +603,49 @@ func main() {
 		user := viper.GetString("datebase.user")
 		password := viper.GetString("datebase.password")
 		base := viper.GetString("datebase.base")
-		dirName = viper.GetString("datebase.dir_name")
+		dirName = viper.GetString("config.dir_name")
+		workRegime := viper.GetString("config.work_regime")
+		canCheckNewFile := workRegime[0:1]
+		canDownloadFile := workRegime[1:1]
+		canUnrarFile := workRegime[2:1]
+		canParseFile := workRegime[3:1]
+		fileName := viper.GetString("config.file_name")
 		dbinfo := fmt.Sprintf("host=%s port=%v user=%s password=%s dbname=%s sslmode=disable application_name='FIAS Parser'",
 			server, port, user, password, base)
 
 		fmt.Println(dbinfo)
 		for {
 
-			check, err := checkNewFile(dbinfo)
-			if err != nil {
-				log.Println(err)
-				break
-			}
-			fmt.Println(check)
+			if canCheckNewFile {
+				check, err := checkNewFile(dbinfo)
+				if err != nil {
+					log.Println(err)
+					break
+				}
+				fmt.Println(check)
 
-			if check == "" {
-				log.Println("Нет новых файлов")
-				time.Sleep(24 * time.Hour)
-				break
+				if check == "" {
+					log.Println("Нет новых файлов")
+					time.Sleep(24 * time.Hour)
+					break
+				}
 			}
-			fileName := "fias.rar"
 
-			/*
+			if canDownloadFile {
 				fileName, err := DownLoadFile(check)
 
 				if err != nil {
 					log.Printf("Ошибка %s при загрузке файла", err)
 					break
 				}
-			*/
+			}
 
-			err = UnRar(fileName)
-			if err != nil {
-				log.Printf("Ошибка %s при распаковки файла", err)
-				break
+			if canUnrarFile {
+				err = UnRar(fileName)
+				if err != nil {
+					log.Printf("Ошибка %s при распаковки файла", err)
+					break
+				}
 			}
 
 			dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
@@ -649,95 +658,96 @@ func main() {
 			if err != nil {
 				log.Fatal(err)
 			}
-
-			for _, file := range files {
-				switch {
-				case ACTSTAT_PATTERN.MatchString(file.Name()):
-					fmt.Println("ACTSTAT_PATTERN")
-					r := new(ActualStatus)
-					Parse(dir+file.Name(), "actual_status", dbinfo, "ActualStatus", r)
-				case ADDROBJ_PATTERN.MatchString(file.Name()):
-					fmt.Println("ADDROBJ_PATTERN")
-					r := new(Object)
-					Parse(dir+file.Name(), "address_objects", dbinfo, "Object", r)
-				case CENTERST_PATTERN.MatchString(file.Name()):
-					fmt.Println("ADDROBJ_PATTERN")
-					r := new(CenterStatus)
-					Parse(dir+file.Name(), "center_status", dbinfo, "CenterStatus", r)
-				case CURENTST_PATTERN.MatchString(file.Name()):
-					fmt.Println("CURENTST_PATTERN")
-					r := new(CenterStatus)
-					Parse(dir+file.Name(), "current_status", dbinfo, "CurrentStatus", r)
-				case DEL_ADDROBJ_PATTERN.MatchString(file.Name()):
-					fmt.Println("DEL_ADDROBJ_PATTERN")
-					r := new(Object)
-					Parse(dir+file.Name(), "del_address_objects", dbinfo, "Object", r)
-				case DEL_HOUSE_PATTERN.MatchString(file.Name()):
-					fmt.Println("DEL_HOUSE_PATTERN")
-					r := new(House)
-					Parse(dir+file.Name(), "del_house", dbinfo, "House", r)
-				case DEL_HOUSEINT_PATTERN.MatchString(file.Name()):
-					fmt.Println("DEL_HOUSEINT_PATTERN")
-					r := new(HouseInterval)
-					Parse(dir+file.Name(), "del_house_interval", dbinfo, "HouseInterval", r)
-				case DEL_NORMDOC_PATTERN.MatchString(file.Name()):
-					fmt.Println("DEL_NORMDOC_PATTERN")
-					r := new(NormativeDocument)
-					Parse(dir+file.Name(), "del_normative_document", dbinfo, "NormativeDocument", r)
-				case ESTSTAT_PATTERN.MatchString(file.Name()):
-					fmt.Println("ESTSTAT_PATTERN")
-					r := new(EstateStatus)
-					Parse(dir+file.Name(), "estate_status", dbinfo, "EstateStatus", r)
-				case HOUSE_PATTERN.MatchString(file.Name()):
-					fmt.Println("HOUSEINT_PATTERN")
-					r := new(House)
-					Parse(dir+file.Name(), "house", dbinfo, "House", r)
-				case HOUSEINT_PATTERN.MatchString(file.Name()):
-					fmt.Println("HOUSEINT_PATTERN")
-					r := new(HouseInterval)
-					Parse(dir+file.Name(), "house_interval", dbinfo, "HouseInterval", r)
-				case HSTSTAT_PATTERN.MatchString(file.Name()):
-					fmt.Println("HSTSTAT_PATTERN")
-					r := new(HouseStateStatus)
-					Parse(dir+file.Name(), "house_state_status", dbinfo, "HouseStateStatus", r)
-				case INTVSTAT_PATTERN.MatchString(file.Name()):
-					fmt.Println("INTVSTAT_PATTERN")
-					r := new(IntervalStatus)
-					Parse(dir+file.Name(), "interval_status", dbinfo, "IntervalStatus", r)
-				case LANDMARK_PATTERN.MatchString(file.Name()):
-					fmt.Println("LANDMARK_PATTERN")
-					r := new(Landmark)
-					Parse(dir+file.Name(), "landmark", dbinfo, "Landmark", r)
-				case NDOCTYPE_PATTERN.MatchString(file.Name()):
-					fmt.Println("NDOCTYPE_PATTERN")
-					r := new(NormativeDocumentType)
-					Parse(dir+file.Name(), "normative_document_type", dbinfo, "NormativeDocumentType", r)
-				case NORMDOC_PATTERN.MatchString(file.Name()):
-					fmt.Println("NORMDOC_PATTERN")
-					r := new(NormativeDocumentType)
-					Parse(dir+file.Name(), "normative_document", dbinfo, "NormativeDocument", r)
-				case OPERSTAT_PATTERN.MatchString(file.Name()):
-					fmt.Println("OPERSTAT_PATTERN")
-					r := new(OperationStatus)
-					Parse(dir+file.Name(), "operation_status", dbinfo, "OperationStatus", r)
-				case SOCRBASE_PATTERN.MatchString(file.Name()):
-					fmt.Println("SOCRBASE_PATTERN")
-					r := new(AddressObjectType)
-					Parse(dir+file.Name(), "address_object_type", dbinfo, "AddressObjectType", r)
-				case STRSTAT_PATTERN.MatchString(file.Name()):
-					fmt.Println("STRSTAT_PATTERN")
-					r := new(StructureStatus)
-					Parse(dir+file.Name(), "structure_status", dbinfo, "StructureStatus", r)
-				case STEAD_PATTERN.MatchString(file.Name()):
-					fmt.Println("STEAD_PATTERN")
-					r := new(Stead)
-					Parse(dir+file.Name(), "steads", dbinfo, "Stead", r)
-				case ROOM_PATTERN.MatchString(file.Name()):
-					fmt.Println("ROOM_PATTERN")
-					r := new(Room)
-					Parse(dir+file.Name(), "rooms", dbinfo, "Room", r)
-				default:
-					fmt.Println("It doesn't match")
+			if canParseFile {
+				for _, file := range files {
+					switch {
+					case ACTSTAT_PATTERN.MatchString(file.Name()):
+						fmt.Println("ACTSTAT_PATTERN")
+						r := new(ActualStatus)
+						Parse(dir+file.Name(), "actual_status", dbinfo, "ActualStatus", r)
+					case ADDROBJ_PATTERN.MatchString(file.Name()):
+						fmt.Println("ADDROBJ_PATTERN")
+						r := new(Object)
+						Parse(dir+file.Name(), "address_objects", dbinfo, "Object", r)
+					case CENTERST_PATTERN.MatchString(file.Name()):
+						fmt.Println("ADDROBJ_PATTERN")
+						r := new(CenterStatus)
+						Parse(dir+file.Name(), "center_status", dbinfo, "CenterStatus", r)
+					case CURENTST_PATTERN.MatchString(file.Name()):
+						fmt.Println("CURENTST_PATTERN")
+						r := new(CenterStatus)
+						Parse(dir+file.Name(), "current_status", dbinfo, "CurrentStatus", r)
+					case DEL_ADDROBJ_PATTERN.MatchString(file.Name()):
+						fmt.Println("DEL_ADDROBJ_PATTERN")
+						r := new(Object)
+						Parse(dir+file.Name(), "del_address_objects", dbinfo, "Object", r)
+					case DEL_HOUSE_PATTERN.MatchString(file.Name()):
+						fmt.Println("DEL_HOUSE_PATTERN")
+						r := new(House)
+						Parse(dir+file.Name(), "del_house", dbinfo, "House", r)
+					case DEL_HOUSEINT_PATTERN.MatchString(file.Name()):
+						fmt.Println("DEL_HOUSEINT_PATTERN")
+						r := new(HouseInterval)
+						Parse(dir+file.Name(), "del_house_interval", dbinfo, "HouseInterval", r)
+					case DEL_NORMDOC_PATTERN.MatchString(file.Name()):
+						fmt.Println("DEL_NORMDOC_PATTERN")
+						r := new(NormativeDocument)
+						Parse(dir+file.Name(), "del_normative_document", dbinfo, "NormativeDocument", r)
+					case ESTSTAT_PATTERN.MatchString(file.Name()):
+						fmt.Println("ESTSTAT_PATTERN")
+						r := new(EstateStatus)
+						Parse(dir+file.Name(), "estate_status", dbinfo, "EstateStatus", r)
+					case HOUSE_PATTERN.MatchString(file.Name()):
+						fmt.Println("HOUSEINT_PATTERN")
+						r := new(House)
+						Parse(dir+file.Name(), "house", dbinfo, "House", r)
+					case HOUSEINT_PATTERN.MatchString(file.Name()):
+						fmt.Println("HOUSEINT_PATTERN")
+						r := new(HouseInterval)
+						Parse(dir+file.Name(), "house_interval", dbinfo, "HouseInterval", r)
+					case HSTSTAT_PATTERN.MatchString(file.Name()):
+						fmt.Println("HSTSTAT_PATTERN")
+						r := new(HouseStateStatus)
+						Parse(dir+file.Name(), "house_state_status", dbinfo, "HouseStateStatus", r)
+					case INTVSTAT_PATTERN.MatchString(file.Name()):
+						fmt.Println("INTVSTAT_PATTERN")
+						r := new(IntervalStatus)
+						Parse(dir+file.Name(), "interval_status", dbinfo, "IntervalStatus", r)
+					case LANDMARK_PATTERN.MatchString(file.Name()):
+						fmt.Println("LANDMARK_PATTERN")
+						r := new(Landmark)
+						Parse(dir+file.Name(), "landmark", dbinfo, "Landmark", r)
+					case NDOCTYPE_PATTERN.MatchString(file.Name()):
+						fmt.Println("NDOCTYPE_PATTERN")
+						r := new(NormativeDocumentType)
+						Parse(dir+file.Name(), "normative_document_type", dbinfo, "NormativeDocumentType", r)
+					case NORMDOC_PATTERN.MatchString(file.Name()):
+						fmt.Println("NORMDOC_PATTERN")
+						r := new(NormativeDocumentType)
+						Parse(dir+file.Name(), "normative_document", dbinfo, "NormativeDocument", r)
+					case OPERSTAT_PATTERN.MatchString(file.Name()):
+						fmt.Println("OPERSTAT_PATTERN")
+						r := new(OperationStatus)
+						Parse(dir+file.Name(), "operation_status", dbinfo, "OperationStatus", r)
+					case SOCRBASE_PATTERN.MatchString(file.Name()):
+						fmt.Println("SOCRBASE_PATTERN")
+						r := new(AddressObjectType)
+						Parse(dir+file.Name(), "address_object_type", dbinfo, "AddressObjectType", r)
+					case STRSTAT_PATTERN.MatchString(file.Name()):
+						fmt.Println("STRSTAT_PATTERN")
+						r := new(StructureStatus)
+						Parse(dir+file.Name(), "structure_status", dbinfo, "StructureStatus", r)
+					case STEAD_PATTERN.MatchString(file.Name()):
+						fmt.Println("STEAD_PATTERN")
+						r := new(Stead)
+						Parse(dir+file.Name(), "steads", dbinfo, "Stead", r)
+					case ROOM_PATTERN.MatchString(file.Name()):
+						fmt.Println("ROOM_PATTERN")
+						r := new(Room)
+						Parse(dir+file.Name(), "rooms", dbinfo, "Room", r)
+					default:
+						fmt.Println("It doesn't match")
+					}
 				}
 			}
 
